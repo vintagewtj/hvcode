@@ -1,0 +1,96 @@
+import argparse
+import time
+import pylab
+import torch
+import numpy as np
+from dataset_generator import *
+from model import *
+from main_parser import *
+device = torch.device("cuda:0")
+
+test_data = Datasets('/data1/datasets/120_angles_in360_origin/test_data')
+
+version = args.version
+epoch = 62            # 指定使用训练第几个epoch后所保存的模型进行测试
+i = 331                    # 指定使用训练集中第几个数据进行测试
+
+if not os.path.exists('/data1/projects/new_experiments/{0}/outputs'.format(version)):
+    os.makedirs('/data1/projects/new_experiments/{0}/outputs'.format(version))
+input_save_path = "/data1/projects/new_experiments/{0}/outputs/model{1}_inputs{2}.bmp".format(version, epoch, i)
+output_save_path = "/data1/projects/new_experiments/{0}/outputs/model{1}_outputs{2}.bmp".format(version, epoch, i)
+gt_save_path = "/data1/projects/new_experiments/{0}/outputs/model{1}_gt{2}.bmp".format(version, epoch, i)
+
+test_img, gt = test_data[i]
+test_img = test_img[0]
+start_time = time.time()
+input_img = test_img.view(1, 1, 512, 512)
+model = torch.load("/data1/projects/new_experiments/{0}/checkpoints/model_{1}.pth".format(version, epoch))
+# model = torch.load("/data1/projects/logs/{0}/iterative_CT_net/checkpoints/model_{1}.pth".format(version, epoch))
+# model = torch.load("../model_to_load/checkpoints/model_{0}.pth".format(epoch))
+model.to(device)
+with torch.no_grad():
+    input_img = input_img.to(device)
+    output = model(input_img)
+from sobel import *
+out_s = output.to(device)
+sobel = L_Sobel()
+out_img_s = sobel._cal_sobel(out_s)
+out_img_s = out_img_s.view(512, 512)
+out_img_s = out_img_s.cpu()
+
+
+# print(output)
+# gt = test_data[i][1][0]
+gt = gt[0]
+gt_s = gt.view(1, 1, 512, 512)
+gt_s = gt_s.to(device)
+gt_s = sobel._cal_sobel(gt_s)
+gt_s = gt_s.view(512, 512)
+gt_s = gt_s.cpu()
+
+sobel_dif = gt_s - out_img_s
+pylab.gray()
+pylab.figure(3)
+pylab.imshow(sobel_dif)
+pylab.colorbar()
+pylab.show()
+sobel_save_path = "/data1/projects/new_experiments/{0}/outputs/model{1}_sobel{2}.bmp".format(version, epoch, i)
+pylab.imsave(sobel_save_path, sobel_dif)
+
+# gt = gt.view(1, 1, 512, 512)
+gt = gt.cpu()
+gt = np.array(gt)
+gt = np.reshape(gt, (512, 512))
+# input_img = input_img - np.mean(input_img) / np.std(input_img)
+# input_img = np.power(input_img, 0.75)
+# input_img = 0 + (255 - 0) / (np.max(input_img) - np.min(input_img)) * (input_img - np.min(input_img))
+
+output = output.cpu()
+out_img = np.array(output).clip(0, 1)
+out_img = np.reshape(out_img, (512, 512))
+# out_img = out_img.clip(0, 1)
+# out_img = 0 + (255 - 0) / (np.max(out_img) - np.min(out_img)) * (out_img - np.min(out_img))
+# out_img = np.power(out_img, 1.25)
+# out_img = out_img - np.mean(out_img) / np.std(out_img)
+# out_img = out_img - 30
+end_time = time.time()
+print("加载时间：{}".format(end_time - start_time))
+# slope = (1-(0))/(np.max(out_img)-np.min(out_img))
+# out_img = (0) + slope*(out_img-np.min(out_img))
+pylab.gray()
+pylab.figure(0)
+pylab.imshow(test_img, ) #vmin=0, vmax=1
+pylab.colorbar()
+pylab.gray()
+pylab.figure(1)
+pylab.imshow(out_img, ) #vmin=0, vmax=1
+pylab.colorbar()
+pylab.figure(2)
+pylab.imshow(gt, ) #vmin=0, vmax=1
+pylab.colorbar()
+pylab.show()
+pylab.imsave(input_save_path, test_img)
+pylab.imsave(output_save_path, out_img)
+pylab.imsave(gt_save_path, gt)
+
+

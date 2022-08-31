@@ -1,0 +1,66 @@
+import re
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.ticker import MultipleLocator
+from numpy import arange
+from main_parser import *
+
+def main():
+    file = open('/data1/projects/new_experiments/{}/run.log'.format(args.version), 'r')
+    # step_list = []
+    train_loss_list = []
+    test_loss_list = []
+    for line in file:
+        string = re.search('训练集上的像素Loss', line)
+        if string:
+            # step_result = re.search('\d+', line)
+            if 'e-' in str(line):
+                bottom_result = re.search('[0-9]+\.[0-9]+', line).group()
+                index_result = re.search('-[0-9]+', line).group()
+                train_loss_result = float(bottom_result) * pow(10, int(index_result))
+            else:
+                train_loss_result = re.search('[0-9]+\.[0-9]+', line).group()
+            # if train_loss_result is not None:
+            train_loss_list.append(train_loss_result)
+        train_loss_list = [round(float(i), 8) for i in train_loss_list]
+
+        string2 = re.search('测试集上的像素Loss', line)
+        if string2:
+            # step_result = re.search('\d+', line)
+            if 'e-' in str(line):
+                bottom_result2 = re.search('[0-9]+\.[0-9]+', line).group()
+                index_result2 = re.search('-[0-9]+', line).group()
+                test_loss_result = float(bottom_result2) * pow(10, int(index_result2))
+            else:
+                test_loss_result = re.search('[0-9]+\.[0-9]+', line).group()
+            # if test_loss_result is not None:
+            test_loss_list.append(test_loss_result)
+        test_loss_list = [round(float(i), 6) for i in test_loss_list]
+    file.close()
+
+    plt.title("{0}_Train/test_loss".format(args.version))
+    # plt.title("Test_loss")
+    # plt.xlabel("step/100")
+    plt.xlabel("epoch")
+    plt.ylabel("loss")
+    x = range(0, len(train_loss_list))
+    y = train_loss_list
+    x2 = range(0, len(test_loss_list))
+    y2 = test_loss_list
+    plt.plot(x, y, 'r', label='train_loss')
+    plt.plot(x2, y2, 'g', label='test_loss')
+    # plt.xlim(0, 500)
+    # plt.xticks(arange(len(loss_list)))
+    plt.yscale('log')
+    # plt.xticks(arange(300), x)
+    # plt.ylim(1e-5, 2e-1)
+    # x_major_locator = MultipleLocator(100)
+    # y_major_locator = MultipleLocator(100)
+    # ax = plt.gca()
+    # ax.xaxis.set_major_locator(x_major_locator)
+    # ax.yaxis.set_major_locator(y_major_locator)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+if __name__ == '__main__':
+    main()

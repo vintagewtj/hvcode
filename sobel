@@ -1,0 +1,91 @@
+import torch
+from torch import nn
+import torch.nn.functional as F
+from dataset_generator import *
+
+
+class L_Sobel(nn.Module):
+    def __init__(self):
+        super(L_Sobel, self).__init__()
+
+        C = 1
+
+        h1 = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]]
+        h2 = [[-2, -1, 0], [-1, 0, 1], [0, 1, 2]]
+        h3 = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]
+        h4 = [[0, 1, 2], [-1, 0, 1], [-2, -1, 0]]
+        h5 = [[1, 2, 1], [0, 0, 0], [-1, -2, -1]]
+        h6 = [[2, 1, 0], [1, 0, -1], [0, -1, -2]]
+        h7 = [[1, 0, -1], [2, 0, -2], [1, 0, -1]]
+        h8 = [[0, -1, -2], [1, 0, -1], [2, 1, 0]]
+
+        h1 = torch.FloatTensor(h1).expand(C, C, 3, 3).cuda()
+        self.weight1 = nn.Parameter(data=h1, requires_grad=False)
+        h2 = torch.FloatTensor(h2).expand(C, C, 3, 3).cuda()
+        self.weight2 = nn.Parameter(data=h2, requires_grad=False)
+        h3 = torch.FloatTensor(h3).expand(C, C, 3, 3).cuda()
+        self.weight3 = nn.Parameter(data=h3, requires_grad=False)
+        h4 = torch.FloatTensor(h4).expand(C, C, 3, 3).cuda()
+        self.weight4 = nn.Parameter(data=h4, requires_grad=False)
+        h5 = torch.FloatTensor(h5).expand(C, C, 3, 3).cuda()
+        self.weight5 = nn.Parameter(data=h5, requires_grad=False)
+        h6 = torch.FloatTensor(h6).expand(C, C, 3, 3).cuda()
+        self.weight6 = nn.Parameter(data=h6, requires_grad=False)
+        h7 = torch.FloatTensor(h7).expand(C, C, 3, 3).cuda()
+        self.weight7 = nn.Parameter(data=h7, requires_grad=False)
+        h8 = torch.FloatTensor(h8).expand(C, C, 3, 3).cuda()
+        self.weight8 = nn.Parameter(data=h8, requires_grad=False)
+
+    def _cal_sobel(self, x):
+        output1 = F.conv2d(x, self.weight1, padding=1).unsqueeze(0)
+        output2 = F.conv2d(x, self.weight2, padding=1).unsqueeze(0)
+        output3 = F.conv2d(x, self.weight3, padding=1).unsqueeze(0)
+        output4 = F.conv2d(x, self.weight4, padding=1).unsqueeze(0)
+        output5 = F.conv2d(x, self.weight5, padding=1).unsqueeze(0)
+        output6 = F.conv2d(x, self.weight6, padding=1).unsqueeze(0)
+        output7 = F.conv2d(x, self.weight7, padding=1).unsqueeze(0)
+        output8 = F.conv2d(x, self.weight8, padding=1).unsqueeze(0)
+
+        h = torch.cat((output1, output2, output3, output4, output5, output6, output7, output8), 0)
+        delta_g, _ = torch.max(h, dim=0)
+        delta_g[delta_g < 0.12] = 0.0
+
+        return delta_g
+
+    def forward(self, org, recon):
+        b, c, h, w = org.shape
+
+        GT_Sobel = self._cal_sobel(org)
+        Recon_Sobel = self._cal_sobel(recon)
+
+        L_sobel = F.l1_loss(GT_Sobel, Recon_Sobel)
+
+        return L_sobel
+
+# loss计算
+if __name__ == '__main__':
+    device = torch.device("cuda:0")
+    criterion_sobel = L_Sobel()
+    criterion_sobel = criterion_sobel.to(device)
+
+    train_data = Datasets('/data1/datasets/{0}_angles_in360_origin/test_data'.format(args.angles))
+
+    i = 335
+    a, b = train_data[i]
+    # a = a.view(1, 1, 512, 512)
+    # a = torch.tensor(a, dtype=torch.float32)
+    a = a.to(device)
+    # b = b.view(1, 1, 512, 512)
+    # b = torch.tensor(b, dtype=torch.float32)
+    b = b.to(device)
+    sobel = L_Sobel()
+    a_sobel = sobel._cal_sobel(a)
+    a_sobel = a_sobel.view(512, 512)
+    a_sobel = a_sobel.cpu()
+
+    # print(sobel_loss)
+    pylab.gray()
+    pylab.figure(1)
+    pylab.imshow(a_sobel)
+    pylab.colorbar()
+    pylab.show()

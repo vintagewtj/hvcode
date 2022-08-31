@@ -1,0 +1,67 @@
+import os
+import pydicom
+import odl
+import numpy as np
+import pylab
+from torch.autograd._functions import tensor
+import astra
+from main_parser import *
+# from config import *
+from dataset_generator import *
+
+# 调用本地的 dicom file
+# folder_path = r"../../datasets/DICOM-CT-PD_FD"
+# file_name = "L067_4L_100kv_fulldose1.00001.dcm"
+# folder_path = "../../datasets/training_image/1mm B30/full_1mm/L067/full_1mm"
+# file_name = "L067_FD_1_1.CT.0001.0538.2015.12.22.18.09.40.840353.358089490.IMA"
+# file_path = os.path.join(folder_path,file_name)
+# ds = pydicom.dcmread(file_path)
+test_data = Datasets('/data1/datasets/{0}_angles_in360_even/test_data'.format(args.angles))
+i = 1
+target = test_data[i][1]
+target = target.numpy()
+target = np.reshape(target, (512, 512))
+# target = ds.pixel_array
+# target = 0 + (255 - 0)/(np.max(target) - np.min(target)) * (target - np.min(target))
+
+pylab.gray()
+pylab.figure(1)
+pylab.imshow(target, )
+pylab.colorbar()
+
+detectors = 725
+size = 512
+max_ang = 2 * np.pi
+angles = 119
+# space = odl.uniform_discr([-size//2, -size//2], [size//2, size//2], [size, size], dtype='float32')
+space = odl.uniform_discr([-size//2, -size//2], [size//2, size//2], [size, size], dtype='float32',)
+angle_partition = odl.uniform_partition(0, max_ang, angles, ) #cell_sides=2*np.pi/180
+detector_partition = odl.uniform_partition(-detectors//2, detectors//2, detectors)
+# detector_partition = odl.uniform_partition(-30, 30, detectors)
+geometry = odl.tomo.Parallel2dGeometry(angle_partition,detector_partition)
+
+### geometry = odl.tomo.parallel_beam_geometry(space, num_angles=angles, det_shape=(detectors,))
+fwd_op = odl.tomo.RayTransform(space, geometry, impl='astra_cuda') #impl='astra_cuda'
+# fourier = odl.trafos.FourierTransform(fwd_op.range, axes=[1])
+# ramp_function = fourier.range.element(lambda x: np.abs(x[1] / (2 * np.pi)))
+# ramp_filter = fourier.inverse * ramp_function * fourier
+# fbp_op = fwd_op.adjoint * ramp_filter
+# fbp_op = fwd_op.adjoint()
+fbp_op = odl.tomo.fbp_op(fwd_op, filter_type='Hann', )#,filter_type='Hann')
+#
+sinogram = fwd_op(target)
+# sinogram = np.clip(sinogram, 0, 1,)
+pylab.figure(2)
+pylab.imshow(sinogram)
+pylab.colorbar()
+print(sinogram.shape)
+
+fbp_result = fbp_op(sinogram, )
+# fbp_result = fbp_res.clim(0, 1)
+pylab.figure(3)
+pylab.imshow(fbp_result, clim=[0, 1]) #clim=[0, 1.1]
+pylab.colorbar()
+pylab.show()
+## from matplotlib import pyplot
+## pyplot.imshow(ds.pixel_array,cmap=pyplot.cm.bone)
+## pyplot.show()
