@@ -1,0 +1,67 @@
+import os
+import numpy as np
+import astra
+import pydicom
+import pylab
+
+idx = 0
+# dicom_root = '/data1/datasets/120_angles_in360_origin/test_data'
+dicom_root = '/data1/datasets/DICOM-CT-PD_FD'
+dicom_list = os.listdir(dicom_root)
+dicom_list.sort()
+dicom_path = os.path.join(dicom_root, dicom_list[idx])
+ds = pydicom.read_file(dicom_path)
+print(ds)
+# Rescale Intercept
+# Rescale Slope
+pixel_value = ds.pixel_array
+print('shape: {0}'.format(pixel_value.shape))
+print('pixel range: [{0} : {1}]'.format(ds.SmallestImagePixelValue, ds.LargestImagePixelValue))
+slope = int(ds.RescaleSlope)
+intercept = int(ds.RescaleIntercept)
+Hu = pixel_value * slope + intercept
+window_width = 440
+window_level = 55
+window_low = window_level - window_width * 0.5
+Hu = (Hu - window_low) / window_width
+Hu[Hu > 1] = 1
+Hu[Hu < 0] = 0
+# Hu = pixel_value
+# pylab.gray()
+# pylab.figure(0)
+# pylab.imshow(Hu, ) #vmin=0, vmax=1
+# pylab.colorbar()
+# pylab.show()
+# pylab.imsave('/data1/results/2000angles.bmp', Hu)
+#
+# vol_geom = astra.create_vol_geom(512, 512)
+# proj_geom = astra.create_proj_geom('parallel', 1.0, 736,
+#                                    np.linspace(np.pi * -90 / 180, np.pi * 90 / 180, 90, ), )
+# P = np.array(Hu)
+# proj_id = astra.create_projector('cuda', proj_geom, vol_geom)  # CPU类型的的投影生成模式可以是
+# # line, linear, strip, GPU的话使用cuda即可。
+# sinogram_id, sinogram = astra.create_sino(P, proj_id)
+# rec_id = astra.data2d.create('-vol', vol_geom)
+# cfg = astra.astra_dict('FBP_CUDA')  # 进行网络训练的同时使用GPU重建占用大量资源，所以不使用FBP_CUDA
+# cfg['ReconstructionDataId'] = rec_id
+# cfg['ProjectionDataId'] = sinogram_id
+# cfg['option'] = {'FilterType': 'Ram-Lak'}  # 如果使用SIRT等迭代算法，此行舍去
+# cfg['ProjectorId'] = proj_id
+# alg_id = astra.algorithm.create(cfg)
+# astra.algorithm.run(alg_id)
+# # astra.algorithm.run(alg_id, 20)          # 如果使用SIRT等迭代算法，此行指定迭代次数
+# inputs = astra.data2d.get(rec_id).clip(0, 1)   #.clip(0, 2305)
+# print(np.min(inputs))
+# print(np.max(inputs))
+# # min_pix = float(ds.SmallestImagePixelValue)
+# # max_pix = float(ds.LargestImagePixelValue)
+# # inputs = min_pix + (max_pix - min_pix) / (np.max(inputs) - np.min(inputs)) * (inputs - np.min(inputs))
+# astra.algorithm.delete(alg_id)
+# astra.data2d.delete(rec_id)
+# astra.data2d.delete(sinogram_id)
+# astra.projector.delete(proj_id)
+# pylab.gray()
+# pylab.figure(1)
+# pylab.imshow(inputs, ) #vmin=0, vmax=1
+# pylab.colorbar()
+# pylab.show()
